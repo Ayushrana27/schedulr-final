@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API = "http://192.168.56.1:5000";
+const API = "https://schedulr-ba.onrender.com";
 
 function Home() {
   const [events, setEvents] = useState([]);

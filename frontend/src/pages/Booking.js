@@ -5,7 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useNavigate } from "react-router-dom";
 
-const API = "http://192.168.56.1:5000";
+const API = "https://schedulr-ba.onrender.com";
 
 function Booking() {
   const { slug } = useParams();
