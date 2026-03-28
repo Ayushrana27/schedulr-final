@@ -23,8 +23,8 @@ app.get("/api/events", async (req, res) => {
     const events = await prisma.eventType.findMany();
     res.json(events);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch events" });
+    console.error("REAL ERROR:", err); // 👈 important
+    res.status(500).json({ error: err.message });
   }
 });
 
