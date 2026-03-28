@@ -1,46 +1,48 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
-
 const { PrismaClient } = require("@prisma/client");
 
 const app = express();
 const prisma = new PrismaClient();
 
-// ✅ Middleware
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors());
 app.use(express.json());
 
-/* =========================
-   EVENT ROUTES
-========================= */
+const PORT = process.env.PORT || 5000;
 
-// Get all events
+//
+// ✅ TEST ROUTE
+//
+app.get("/", (req, res) => {
+  res.send("API running 🚀");
+});
+
+//
+// ✅ GET ALL EVENTS
+//
 app.get("/api/events", async (req, res) => {
   try {
     const events = await prisma.eventType.findMany();
     res.json(events);
   } catch (err) {
-    console.error("REAL ERROR:", err); // 👈 important
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch events" });
   }
 });
 
-// Create event
+//
+// ✅ CREATE EVENT
+//
 app.post("/api/events", async (req, res) => {
   try {
     const { title, duration } = req.body;
 
-    const slug = title.toLowerCase().replace(/\s+/g, "-");
-
     const event = await prisma.eventType.create({
       data: {
         title,
-        duration: parseInt(duration),
-        slug
-      }
+        duration,
+        slug: title.toLowerCase().replace(/\s+/g, "-"),
+      },
     });
 
     res.json(event);
@@ -50,113 +52,84 @@ app.post("/api/events", async (req, res) => {
   }
 });
 
-// Update event
-app.put("/api/events/:id", async (req, res) => {
+//
+// 🔥 GET SLOTS (IMPORTANT)
+//
+app.get("/api/bookings/slots/:slug", async (req, res) => {
   try {
-    const { title, duration } = req.body;
+    const { slug } = req.params;
+    const { date } = req.query;
 
-    const updated = await prisma.eventType.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        title,
-        duration: parseInt(duration)
+    // 👉 get event
+    const event = await prisma.eventType.findUnique({
+      where: { slug },
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const duration = event.duration;
+
+    // 👉 generate slots
+    const slots = [];
+    let start = 9;
+    let end = 17;
+
+    for (let h = start; h < end; h++) {
+      for (let m = 0; m < 60; m += duration) {
+        const time = `${h.toString().padStart(2, "0")}:${m
+          .toString()
+          .padStart(2, "0")}`;
+        slots.push(time);
       }
-    });
+    }
 
-    res.json(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update event" });
-  }
-});
-
-// Delete event
-app.delete("/api/events/:id", async (req, res) => {
-  try {
-    await prisma.eventType.delete({
-      where: { id: parseInt(req.params.id) }
-    });
-
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete event" });
-  }
-});
-
-
-/* =========================
-   BOOKING ROUTES
-========================= */
-
-// Get bookings
-app.get("/api/bookings", async (req, res) => {
-  try {
+    // 👉 get booked slots
     const bookings = await prisma.booking.findMany({
-      include: { eventType: true }
+      where: { date },
     });
-    res.json(bookings);
+
+    const bookedTimes = bookings.map((b) => b.startTime);
+
+    // 👉 filter available
+    const available = slots.filter((s) => !bookedTimes.includes(s));
+
+    res.json(available);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch bookings" });
+    console.error(err);
+    res.status(500).json({ message: "Slot error" });
   }
 });
 
-// Create booking
+//
+// ✅ CREATE BOOKING
+//
 app.post("/api/bookings", async (req, res) => {
   try {
-    const { name, email, date, startTime, endTime, eventTypeId } = req.body;
-
-    // Prevent double booking
-    const exists = await prisma.booking.findFirst({
-      where: {
-        date,
-        startTime,
-        eventTypeId: parseInt(eventTypeId)
-      }
-    });
-
-    if (exists) {
-      return res.status(400).json({ error: "Slot already booked" });
-    }
+    const { name, email, date, time, eventTypeId } = req.body;
 
     const booking = await prisma.booking.create({
       data: {
         name,
         email,
         date,
-        startTime,
-        endTime,
-        eventTypeId: parseInt(eventTypeId)
-      }
+        startTime: time,
+        endTime: time,
+        eventTypeId,
+      },
     });
 
     res.json(booking);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Booking failed" });
+    res.status(500).json({ message: "Booking failed" });
   }
 });
 
-// Cancel booking
-app.delete("/api/bookings/:id", async (req, res) => {
-  try {
-    await prisma.booking.delete({
-      where: { id: parseInt(req.params.id) }
-    });
-
-    res.json({ message: "Booking cancelled" });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to cancel booking" });
-  }
-});
-
-
-/* =========================
-   SERVER START
-========================= */
-
-const PORT = process.env.PORT || 5000;
-
+//
+// 🚀 START SERVER
+//
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

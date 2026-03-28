@@ -7,15 +7,11 @@ function Home() {
   const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    axios
-      .get(`${API}/api/events`)
-      .then((res) => {
-        console.log("EVENTS:", res.data);
-        setEvents(res.data);
-      })
-      .catch((err) => console.error(err));
-  }, []);
-
+  fetch(`${API}/api/events`)
+    .then(res => res.json())
+    .then(data => setEvents(data))
+    .catch(err => console.error(err));
+}, []);
   return (
     <div className="container">
 
